@@ -5,7 +5,7 @@ from typing import Union, Any, Tuple
 from hexagon_grid import hexagon_grid
 from filter_bank import filter_bank
 import multiprocessing
-from pathos import ThreadingPool
+from pathos.threading import ThreadPool
 
 def make_t_sne(tsne, y, title):
     plt.xticks(())
@@ -130,7 +130,7 @@ def calc_parallel(data: np.ndarray, filters_real: np.ndarray, filters_abs: np.nd
     # New calc with nested parallelism
     coefficients = -np.ones((data.shape[0], filters_real.shape[0]))
     grid = [np.array([dy, dx]) for dy in np.arange(-3, 4) for dx in np.arange(-3, 4)]
-    pool = ThreadingPool(len(grid))
+    pool = ThreadPool(len(grid))
 
     results = pool.imap(lambda p: calc_coefficients(*p), [(data, filters_real, filters_abs, center, point) for point in grid])
     returned = list(results)
