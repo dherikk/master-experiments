@@ -15,8 +15,3 @@ def hexagon_grid(radius: int) -> np.ndarray:
                 result = np.vstack((result, point))
 
     return result
-
-if __name__ == '__main__':
-    points = np.rint(8*hexagon_grid(2))
-    plt.scatter(*zip(*points))
-    plt.show()
