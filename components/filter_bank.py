@@ -1,5 +1,5 @@
 import numpy as np
-from gaussian import gaussian
+from components.gaussian import gaussian
 
 
 def filter_bank(N: int, sigma: float, r_end: int, r_delta: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[list[int]]]:

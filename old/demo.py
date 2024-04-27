@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from gaussian import gaussian
+from components.gaussian import gaussian
 
 matplotlib.rcParams.update({"figure.figsize": np.array(matplotlib.rcParams["figure.figsize"]) * [2., 1.]})
 

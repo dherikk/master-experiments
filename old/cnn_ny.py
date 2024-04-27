@@ -3,10 +3,10 @@ from mnist import get_mnist
 from sklearn.manifold import TSNE
 import matplotlib
 import matplotlib.pyplot as plt
-from filter_bank import filter_bank
+from components.filter_bank import filter_bank
 from sklearn.linear_model import LogisticRegression
 import concurrent.futures
-from hexagon_grid import hexagon_grid
+from components.hexagon_grid import hexagon_grid
 
 plt.xticks(())
 plt.yticks(())

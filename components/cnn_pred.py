@@ -1,4 +1,4 @@
-from cnn_parallell import experiment1, experiment3, experiment4
+from components.cnn_parallell import experiment1, experiment3, experiment4
 import numpy as np
 import seaborn as sns
 import mnist

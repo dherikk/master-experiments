@@ -1,9 +1,9 @@
 import numpy as np
-from trr import get_mnist
+from components.get_mnist import get_mnist
 from sklearn.manifold import TSNE
 import matplotlib
 import matplotlib.pyplot as plt
-from gaussian import gaussian
+from components.gaussian import gaussian
 
 plt.xticks(())
 plt.yticks(())
