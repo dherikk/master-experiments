@@ -5,7 +5,8 @@ from sklearn.manifold import TSNE
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
-from mnist import get_mnist
+#from mnist import get_mnist
+import mnist
 from coefficients import load_coefficients
 from enum import Enum
 
@@ -13,11 +14,13 @@ plt.xticks(())
 plt.yticks(())
 plt.tight_layout(pad=0.0)
 
+
+
 train_size = 60000
 
 
 def raw_tsne(threshold: None | float):
-    [data_train, labels_train, _, _] = get_mnist()
+    [data_train, labels_train] = [mnist.train_images()/255.0, mnist.train_labels()]
     data_train = data_train[0:train_size, 1:, 1:]
     labels_train = labels_train[0:train_size]
 
@@ -33,7 +36,7 @@ def raw_tsne(threshold: None | float):
 
 
 def coefficient_tsne(threshold: None | float):
-    [_, labels_train, _, _] = get_mnist()
+    [_, labels_train, _, _] = [None, mnist.train_labels(), None, None]
     labels_train = labels_train[0:train_size]
 
     coefficients_train = np.empty((train_size, 0))
@@ -60,7 +63,7 @@ class Classifier(Enum):
 
 def get_model(classifier: Classifier):
     if classifier == Classifier.SUPPORT_VECTOR:
-        return SVC(random_state=0)
+        return SVC(random_state=0, kernel='rbf', C=10., gamma="auto")
     elif classifier == Classifier.LOGISTIC_REGRESSION:
         return LogisticRegression(fit_intercept=True,
                                   max_iter=1000,
@@ -74,9 +77,9 @@ def get_model(classifier: Classifier):
 
 
 def raw_score(noise_scale: None | float, threshold: None | float, classifier: Classifier):
-    [data_train, labels_train, data_test, labels_test] = get_mnist()
+    [data_train, labels_train, data_test, labels_test] = [mnist.train_images()/255.0, mnist.train_labels(), mnist.test_images()/255.0, mnist.test_labels()]
     data_train = data_train[0:train_size, 1:, 1:]
-    data_test = data_test[:, 1:, 1:] + (np.random.normal(0., noise_scale, size=(10000, 27, 27)) if noise_scale else 0.)
+    data_test = data_test[:, 1:, 1:] + (np.random.normal(0., noise_scale, size=(10000, 27, 27)) if noise_scale else 0.) ### train_size was 10000
     labels_train = labels_train[0:train_size]
 
     if threshold:
@@ -85,11 +88,12 @@ def raw_score(noise_scale: None | float, threshold: None | float, classifier: Cl
 
     model = get_model(classifier)
     model.fit(data_train.reshape(-1, 27 * 27), labels_train)
+    print("Done fitting, now scoring")
     return model.score(data_test.reshape(-1, 27 * 27), labels_test)
 
 
 def coefficient_score(noise_scale: None | float, threshold: None | float, classifier: Classifier):
-    [_, labels_train, _, labels_test] = get_mnist()
+    [_, labels_train, _, labels_test] = [None, mnist.train_labels(), None, mnist.test_labels()]
     labels_train = labels_train[0:train_size]
 
     coefficients_train = np.empty((train_size, 0))
@@ -109,5 +113,5 @@ def coefficient_score(noise_scale: None | float, threshold: None | float, classi
 
 
 if __name__ == '__main__':
-    classifier = Classifier.LOGISTIC_REGRESSION
-    print(coefficient_score(noise_scale=0.5, threshold=0.7, classifier=classifier))
+    classifier = Classifier.SUPPORT_VECTOR
+    print(raw_score(noise_scale=0.5, threshold=None, classifier=classifier))

@@ -1,7 +1,7 @@
 import numpy as np
 from filter_bank import filter_bank
 from hexagonal_grid import hexagonal_grid, hexagonal_grid_length
-from mnist import get_mnist
+import mnist
 from multiprocessing import Pool
 import os
 import matplotlib.pyplot as plt
@@ -42,7 +42,7 @@ def save_coefficients(path: str, data: np.ndarray, grid_scale: int, center: np.n
 
 
 if __name__ == '__main__':
-    [data_train, _, data_test, _] = get_mnist()
+    [data_train, _, data_test, _] = [mnist.train_images() / 255.0, mnist.train_labels(), mnist.test_images() / 255.0, mnist.test_labels()]
     data_train = data_train[:, 1:, 1:]
     data_test = data_test[:, 1:, 1:] + np.random.normal(0., 0.5, size=(10000, 27, 27))
 

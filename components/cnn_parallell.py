@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from components.gaussian import gaussian
 from typing import Union, Any, Tuple
 from components.hexagon_grid import hexagon_grid
-from components.filter_bank import filter_bank
+from components.filter_bank import filter_bank, filter_bank_img
 import multiprocessing
 from pathos.threading import ThreadPool
 
@@ -142,131 +142,6 @@ def calc_parallel(data: np.ndarray, filters_real: np.ndarray, filters_abs: np.nd
     return np.hstack((coefficients[:, theta_indices[0]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[1]].max(axis=1).reshape(-1, 1),
                       coefficients[:, theta_indices[2]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[3]].max(axis=1).reshape(-1, 1)))
 
-def experiment1(X:np.ndarray, sig:float=20.) -> np.ndarray:
-    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
-
-    manifold = []
-    thetas = np.hstack([[np.NaN], np.arange(0, 2 * np.pi, np.pi / 3)])
-
-    with multiprocessing.Pool() as p:
-        manifold += p.starmap(calc, [(X, filters_real, filters_abs, theta_indices, t) for t in thetas])
-
-    manifold_reshaped = np.hstack([i for i in manifold])
-
-    return manifold_reshaped
-
-def experiment2(X:np.ndarray, sig:float=20.) -> np.ndarray:
-
-    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
-    manifold = []
-    centers = np.rint(8*hexagon_grid(2))
-
-    with multiprocessing.Pool(len(centers)) as p:
-        manifold += p.starmap(calc_4, [(X, filters_real, filters_abs, theta_indices, p) for p in centers])
-
-    manifold_reshaped = np.hstack([i for i in manifold])
-
-    return manifold_reshaped
-
-def experiment3(X:np.ndarray, sig:float=20.) -> np.ndarray:
-    N = 27
-    n1 = np.arange(N).reshape((-1, 1)).repeat(N, axis=1) - (N - 1) / 2
-    n2 = n1.T
-    n = np.array([n1, n2])
-    sigma = sig
-    dr = 2.
-    dtheta = 0.250655662336131
-
-    filters_real_ = []
-    filters_abs_ = []
-    all_indices = [[[], [], []], [[0], [], []], [[0], [], []], [[0], [], []]]
-
-    frequency_domain = gaussian(n, np.array([0., 0.]), sigma, True)
-    filter_real = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(frequency_domain))).real
-    filters_real_.append(filter_real)
-    filters_abs_.append(filter_real)
-
-    for theta in np.arange(0., np.pi, dtheta):
-        for r_idx, r in enumerate(np.arange(dr + dr , dr * 4. + dr, dr)):
-            filter = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(gaussian(n, r * np.array([np.cos(theta), np.sin(theta)]), sigma, True))))
-            filters_real_.append(filter.real / np.sqrt(np.sum(np.square(filter.real))))
-            filters_abs_.append(np.abs(filter))
-            if theta < np.pi / 8 or theta >= 7 * np.pi / 8:
-                all_indices[0][r_idx].append(len(filters_real_) - 1)
-            elif theta >= np.pi / 8 and theta < 3 * np.pi / 8:
-                all_indices[1][r_idx].append(len(filters_real_) - 1)
-            elif theta >= 3 * np.pi / 8 and theta < 5 * np.pi / 8:
-                all_indices[2][r_idx].append(len(filters_real_) - 1)
-            elif theta >= 5 * np.pi / 8 and theta < 7 * np.pi / 8:
-                all_indices[3][r_idx].append(len(filters_real_) - 1)
-
-    theta_indices = [[item for items in all_indices[i] for item in items] for i in range(4)]
-    circle_i = [[i[ring] for i in all_indices] for ring in range(3)]
-    circle_indices = [[x for xs in lst for x in xs] for lst in circle_i]
-
-    filters_real = np.array(filters_real_)
-    filters_abs = np.array(filters_abs_)
-
-    manifold = []
-    visited = []
-    all_centers = []
-
-    for theta in np.arange(0, 2 * np.pi, np.pi / 3):
-        if ((8 * np.sin(theta), -8 * np.cos(theta)) not in visited and not np.isnan(theta)):
-            visited.append((8 * np.sin(theta), -8 * np.cos(theta)))
-
-    for tt in np.arange(0, 2 * np.pi, np.pi / 3):
-        for visit in visited.copy():
-            if ((visit[0] + (8 * np.sin(tt)), visit[1] + (8 * np.cos(tt))) not in visited):
-                point = (visit[0] + (8 * np.sin(tt)), visit[1] - (8 * np.cos(tt)))
-                all_centers.append(point)
-
-    centers = set([(np.rint(i[0]), np.rint(i[1])) for i in all_centers])
-    centers = np.array([list(i) for i in centers])
- 
-    with multiprocessing.Pool(len(centers)) as p:
-        manifold += p.starmap(calc_3, [(X, filters_real, filters_abs, theta_indices, circle_indices, p) for p in centers])
-
-    manifold_reshaped = np.hstack([i for i in manifold])
-
-    return manifold_reshaped
-
-def experiment4(X:np.ndarray, sig:float=20., length: int=6, rings: int=3) -> np.ndarray:
-    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
-    manifold = []
-    centers = np.rint(length*hexagon_grid(rings))
-
-    with multiprocessing.Pool(len(centers)) as p:
-        manifold += p.starmap(calc_4, [(X, filters_real, filters_abs, theta_indices, p) for p in centers])
-
-    manifold_reshaped = np.hstack([i for i in manifold])
-
-    return manifold_reshaped
-
-def experiment6(X:np.ndarray, sig:float=20., length: int=6, rings: int=3, threshhold:float = 0.5) -> np.ndarray:
-    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
-    manifold = []
-    centers = np.rint(length*hexagon_grid(rings))
-
-    with multiprocessing.Pool(len(centers)) as p:
-        manifold += p.starmap(calc_5, [(X, filters_real, filters_abs, theta_indices, p, threshhold) for p in centers])
-
-    manifold_reshaped = np.hstack([i for i in manifold])
-
-    return manifold_reshaped
-
-def experiment7(X:np.ndarray, sig:float=20., length: int=6, rings: int=3, grid_size=3) -> np.ndarray:
-    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
-    manifold = []
-    centers = np.rint(length*hexagon_grid(rings))
-
-    with multiprocessing.Pool(len(centers)) as p:
-        manifold += p.starmap(calc_6, [(X, filters_real, filters_abs, theta_indices, p, grid_size) for p in centers])
-
-    manifold_reshaped = np.hstack([i for i in manifold])
-
-    return manifold_reshaped
-
 def create_coefficients(data: np.ndarray, center: np.ndarray, grid_scale: int):
     filters_real, _, filters_abs, theta_indices = filter_bank(27, 20., 2 * 4, 2)
 
@@ -285,3 +160,126 @@ def create_coefficients(data: np.ndarray, center: np.ndarray, grid_scale: int):
 
     return np.hstack((coefficients[:, theta_indices[0]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[1]].max(axis=1).reshape(-1, 1),
                       coefficients[:, theta_indices[2]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[3]].max(axis=1).reshape(-1, 1)))
+
+def create_coefficients_with_threshold(data: np.ndarray, center: np.ndarray, grid_scale: int, threshhold: float):
+    filters_real, _, filters_abs, theta_indices = filter_bank(27, 20., 2 * 4, 2)
+
+    coefficients = np.full((data.shape[0], filters_real.shape[0]), -1., dtype=np.float32)
+
+    radius = grid_scale / np.sqrt(3.)  # The radius of the circumscribed circle is 2/sqrt(3) * grid_scale/2
+    for d1 in np.arange(-radius, radius + 1., 1.):
+        for d2 in np.arange(-radius, radius + 1., 1.):
+            d = np.array([d1, d2])
+            if np.square(d).sum() <= np.square(radius + 0.15):  # +0.15 to avoid gaps
+                rolled = np.roll(data, (center + d).astype(int), axis=(1, 2))
+                for i in range(filters_real.shape[0]):
+                    masked = rolled * filters_abs[i]
+                    masked /= np.sqrt(np.sum(np.square(masked), axis=(1, 2))).reshape(-1, 1, 1)
+                    coefficients[:, i] = np.maximum(coefficients[:, i], np.sum(masked * filters_real[i], axis=(1, 2)))
+
+    final_coefs = np.hstack((coefficients[:, theta_indices[0]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[1]].max(axis=1).reshape(-1, 1),
+                      coefficients[:, theta_indices[2]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[3]].max(axis=1).reshape(-1, 1)))
+    
+    return np.where(final_coefs > threshhold, final_coefs, 0.)
+
+def create_coefficients_with_img(data: np.ndarray, center: np.ndarray, grid_scale: int):
+    filters_real, filters, theta_indices = filter_bank_img(27, 20., 2 * 4, 2)
+
+    coefficients = np.full((data.shape[0], filters_real.shape[0]), -1., dtype=np.float32)
+
+    radius = grid_scale / np.sqrt(3.)  # The radius of the circumscribed circle is 2/sqrt(3) * grid_scale/2
+    for d1 in np.arange(-radius, radius + 1., 1.):
+        for d2 in np.arange(-radius, radius + 1., 1.):
+            d = np.array([d1, d2])
+            if np.square(d).sum() <= np.square(radius + 0.15):  # +0.15 to avoid gaps
+                rolled = np.roll(data, (center + d).astype(int), axis=(1, 2))
+                for i in range(filters_real.shape[0]):
+                    masked = rolled * filters[i]
+                    masked /= np.sqrt(np.sum(np.square(masked), axis=(1, 2))).reshape(-1, 1, 1)
+                    coefficients[:, i] = np.maximum(coefficients[:, i], np.sum(masked * filters_real[i], axis=(1, 2)))
+
+    return np.hstack((coefficients[:, theta_indices[0]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[1]].max(axis=1).reshape(-1, 1),
+                      coefficients[:, theta_indices[2]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[3]].max(axis=1).reshape(-1, 1)))
+## 1 Ring
+def experiment1(X:np.ndarray, sig:float=20.) -> np.ndarray:
+    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
+
+    manifold = []
+    thetas = np.hstack([[np.NaN], np.arange(0, 2 * np.pi, np.pi / 3)])
+
+    with multiprocessing.Pool() as p:
+        manifold += p.starmap(calc, [(X, filters_real, filters_abs, theta_indices, t) for t in thetas])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+## 2 Rings
+def experiment2(X:np.ndarray, sig:float=20.) -> np.ndarray:
+
+    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
+    manifold = []
+    centers = np.rint(8*hexagon_grid(2))
+
+    with multiprocessing.Pool(len(centers)) as p:
+        manifold += p.starmap(calc_4, [(X, filters_real, filters_abs, theta_indices, p) for p in centers])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+## 3 Rings
+def experiment4(X:np.ndarray, sig:float=20., grid_scale: int=7, grid_radius: int=3) -> np.ndarray:
+    manifold = []
+    centers = np.rint(grid_scale*hexagon_grid(grid_radius))
+
+    with multiprocessing.Pool(len(centers)) as p:
+        manifold += p.starmap(create_coefficients, [(X, p, grid_scale) for p in centers])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+## 3 Rings + threshold
+def experiment6(X:np.ndarray, grid_scale: int=7, grid_radius: int=3, threshold:float = 0.5) -> np.ndarray:
+    manifold = []
+    centers = np.rint(grid_scale*hexagon_grid(grid_radius))
+
+    with multiprocessing.Pool(len(centers)) as p:
+        manifold += p.starmap(create_coefficients_with_threshold, [(X, p, grid_scale, threshold) for p in centers])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
+""" def experiment7(X:np.ndarray, sig:float=20., length: int=6, rings: int=3, grid_size=3) -> np.ndarray:
+    filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
+    manifold = []
+    centers = np.rint(length*hexagon_grid(rings))
+
+    with multiprocessing.Pool(len(centers)) as p:
+        manifold += p.starmap(calc_6, [(X, filters_real, filters_abs, theta_indices, p, grid_size) for p in centers])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped """
+
+## Different amount of rings and scales
+def experiment7(X:np.ndarray, grids: list[tuple[int, int]]=[(3, 3), (2, 5), (1, 7), (1, 9)]) -> np.ndarray:
+    manifold = []
+
+    with multiprocessing.Pool() as p:
+        manifold += p.starmap(create_coefficients, [(X, center, grid_scale) for grid_radius, grid_scale in grids for center in grid_scale * hexagon_grid(grid_radius)])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
+## Different amount of rings and scales with threshold
+def experiment8(X:np.ndarray, threshold: float, grids: list[tuple[int, int]]=[(3, 3), (2, 5), (1, 7), (1, 9)]) -> np.ndarray:
+    manifold = []
+
+    with multiprocessing.Pool() as p:
+        manifold += p.starmap(create_coefficients_with_threshold, [(X, center, grid_scale, threshold) for grid_radius, grid_scale in grids for center in grid_scale * hexagon_grid(grid_radius)])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
