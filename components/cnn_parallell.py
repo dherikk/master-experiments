@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from components.gaussian import gaussian
 from typing import Union, Any, Tuple
 from components.hexagon_grid import hexagon_grid
-from components.filter_bank import filter_bank, filter_bank_img
+from components.filter_bank import filter_bank, filter_bank_img, filter_bank_img_neg
 import multiprocessing
 from pathos.threading import ThreadPool
 
@@ -222,6 +221,46 @@ def create_coefficients_with_img_and_threshold(data: np.ndarray, center: np.ndar
     
     return np.where(final_coefs > threshold, final_coefs, 0.)
 
+def create_coefficients_with_img_and_neg(data: np.ndarray, center: np.ndarray, grid_scale: int):
+    filters_abs, filters, theta_indices = filter_bank_img_neg(27, 20., 2 * 4, 2)
+
+    coefficients = np.full((data.shape[0], filters.shape[0]), -1., dtype=np.float32)
+
+    radius = grid_scale / np.sqrt(3.)  # The radius of the circumscribed circle is 2/sqrt(3) * grid_scale/2
+    for d1 in np.arange(-radius, radius + 1., 1.):
+        for d2 in np.arange(-radius, radius + 1., 1.):
+            d = np.array([d1, d2])
+            if np.square(d).sum() <= np.square(radius + 0.15):  # +0.15 to avoid gaps
+                rolled = np.roll(data, (center + d).astype(int), axis=(1, 2))
+                for i in range(filters.shape[0]):
+                    masked = rolled * filters_abs[i//4]
+                    masked /= np.sqrt(np.sum(np.square(masked), axis=(1, 2))).reshape(-1, 1, 1)
+                    coefficients[:, i] = np.maximum(coefficients[:, i], np.sum(masked * filters[i], axis=(1, 2)))
+
+    return np.hstack((coefficients[:, theta_indices[0]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[1]].max(axis=1).reshape(-1, 1),
+                      coefficients[:, theta_indices[2]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[3]].max(axis=1).reshape(-1, 1)))
+
+def create_coefficients_with_img_and_threshold_and_neg(data: np.ndarray, center: np.ndarray, grid_scale: int, threshold: float):
+    filters_abs, filters, theta_indices = filter_bank_img_neg(27, 20., 2 * 4, 2)
+
+    coefficients = np.full((data.shape[0], filters.shape[0]), -1., dtype=np.float32)
+
+    radius = grid_scale / np.sqrt(3.)  # The radius of the circumscribed circle is 2/sqrt(3) * grid_scale/2
+    for d1 in np.arange(-radius, radius + 1., 1.):
+        for d2 in np.arange(-radius, radius + 1., 1.):
+            d = np.array([d1, d2])
+            if np.square(d).sum() <= np.square(radius + 0.15):  # +0.15 to avoid gaps
+                rolled = np.roll(data, (center + d).astype(int), axis=(1, 2))
+                for i in range(filters.shape[0]):
+                    masked = rolled * filters_abs[i//4]
+                    masked /= np.sqrt(np.sum(np.square(masked), axis=(1, 2))).reshape(-1, 1, 1)
+                    coefficients[:, i] = np.maximum(coefficients[:, i], np.sum(masked * filters[i], axis=(1, 2)))
+
+    final_coefs = np.hstack((coefficients[:, theta_indices[0]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[1]].max(axis=1).reshape(-1, 1),
+                             coefficients[:, theta_indices[2]].max(axis=1).reshape(-1, 1), coefficients[:, theta_indices[3]].max(axis=1).reshape(-1, 1)))
+    
+    return np.where(final_coefs > threshold, final_coefs, 0.)
+
 ## 1 Ring
 def experiment1(X:np.ndarray, sig:float=20.) -> np.ndarray:
     filters_real, _, filters_abs, theta_indices = filter_bank(27, sig, 2 * 4, 2)
@@ -341,6 +380,59 @@ def experiment8_img(X:np.ndarray, threshold: float, grids: list[tuple[int, int]]
 
     with multiprocessing.Pool() as p:
         manifold += p.starmap(create_coefficients_with_img_and_threshold, [(X, center, grid_scale, threshold) for grid_radius, grid_scale in grids for center in grid_scale * hexagon_grid(grid_radius)])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
+    filters_abs, filters, theta_indices = filter_bank_img_neg(27, sig, 2 * 4, 2)
+
+    manifold = []
+    thetas = np.hstack([[np.NaN], np.arange(0, 2 * np.pi, np.pi / 3)])
+
+    with multiprocessing.Pool() as p:
+        manifold += p.starmap(calc_5, [(X, filters, filters_abs, theta_indices, t, 0.) for t in thetas])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+def experiment4_img_neg(X:np.ndarray, sig:float=20., grid_scale: int=7, grid_radius: int=3) -> np.ndarray:
+    manifold = []
+    centers = np.rint(grid_scale*hexagon_grid(grid_radius))
+
+    with multiprocessing.Pool(len(centers)) as p:
+        manifold += p.starmap(create_coefficients_with_img_and_neg, [(X, p, grid_scale) for p in centers])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
+def experiment6_img_neg(X:np.ndarray, grid_scale: int=7, grid_radius: int=3, threshold:float = 0.5) -> np.ndarray:
+    manifold = []
+    centers = np.rint(grid_scale*hexagon_grid(grid_radius))
+
+    with multiprocessing.Pool(len(centers)) as p:
+        manifold += p.starmap(create_coefficients_with_img_and_threshold_and_neg, [(X, p, grid_scale, threshold) for p in centers])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
+def experiment7_img_neg(X:np.ndarray, grids: list[tuple[int, int]]=[(3, 3), (2, 5), (1, 7), (1, 9)]) -> np.ndarray:
+    manifold = []
+
+    with multiprocessing.Pool() as p:
+        manifold += p.starmap(create_coefficients_with_img_and_neg, [(X, center, grid_scale) for grid_radius, grid_scale in grids for center in grid_scale * hexagon_grid(grid_radius)])
+
+    manifold_reshaped = np.hstack([i for i in manifold])
+
+    return manifold_reshaped
+
+def experiment8_img_neg(X:np.ndarray, threshold: float, grids: list[tuple[int, int]]=[(3, 3), (2, 5), (1, 7), (1, 9)]) -> np.ndarray:
+    manifold = []
+
+    with multiprocessing.Pool() as p:
+        manifold += p.starmap(create_coefficients_with_img_and_threshold_and_neg, [(X, center, grid_scale, threshold) for grid_radius, grid_scale in grids for center in grid_scale * hexagon_grid(grid_radius)])
 
     manifold_reshaped = np.hstack([i for i in manifold])
 

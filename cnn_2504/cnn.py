@@ -7,7 +7,7 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 #from mnist import get_mnist
 import mnist
-from coefficients import load_coefficients
+from coef import load_coefficients
 from enum import Enum
 
 plt.xticks(())
@@ -113,5 +113,6 @@ def coefficient_score(noise_scale: None | float, threshold: None | float, classi
 
 
 if __name__ == '__main__':
-    classifier = Classifier.SUPPORT_VECTOR
-    print(raw_score(noise_scale=0.5, threshold=None, classifier=classifier))
+    classifier = Classifier.K_NEAREST_NEIGHBOURS
+    print("0.7 terskling, KNN, (3,3), (2,5), (1,7)")
+    print(coefficient_score(noise_scale=0.5, threshold=None, classifier=classifier))
